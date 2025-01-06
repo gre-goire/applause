@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mesureur de Décibels</title>
+  <style>
+    /* Style général de la page avec image de fond */
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: url('https://www.example.com/your-image.jpg') no-repeat center center fixed; /* Remplacez cette URL par la vôtre */
+      background-size: cover; /* L'image s'ajuste à la taille de l'écran */
+      color: white;
+    }
+
+    h1 {
+      margin-top: 20px;
+      color: #2c3e50;
+    }
+
+    .gauge {
+      margin: 50px auto;
+      width: 300px;
+      height: 150px;
+      background: linear-gradient(to right, #2ecc71, #f39c12, #e74c3c); /* Dégradé permanent de vert à rouge */
+      border-radius: 150px 150px 0 0;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .gauge-fill {
+      height: 100%;
+      width: 0%; /* Remplissage de la jauge basé sur les décibels mesurés */
+      background: inherit; /* Utilise le même dégradé de fond */
+      position: absolute;
+      top: 0;
+      left: 0;
+      border-radius: 150px 150px 0 0;
+      transition: width 0.1s ease-out; /* Transition fluide */
+    }
+
+    .needle {
+      width: 6px;
+      height: 100px;
+      background-color: #34495e;
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform-origin: bottom;
+      transform: translateX(-50%) rotate(0deg);
+      transition: transform 0.1s ease-out;
+    }
+
+    .decibels {
+      font-size: 2rem;
+      margin-top: 20px;
+      color: #34495e;
+    }
+
+    .max-decibels {
+      font-size: 1.5rem;
+      color: #16a085;
+    }
+
+    .reset-button {
+      background-color: #e74c3c;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .reset-button:hover {
+      background-color: #c0392b;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mesureur de Décibels</h1>
+  <div class="gauge">
+    <div class="gauge-fill" id="gaugeFill"></div>
+    <div class="needle" id="needle"></div>
+  </div>
+  <div class="decibels" id="decibels">0 dB</div>
+  <div class="max-decibels" id="max-decibels">Max: 0 dB</div>
+  
+  <!-- Bouton pour réinitialiser -->
+  <button class="reset-button" id="resetButton">Réinitialiser</button>
+
+  <script>
+    // Variables pour la jauge
+    const needle = document.getElementById('needle');
+    const gaugeFill = document.getElementById('gaugeFill');
+    const decibelsDisplay = document.getElementById('decibels');
+    const maxDecibelsDisplay = document.getElementById('max-decibels');
+    let maxDecibels = 0; // Valeur max des décibels mesurés
+    let analyser, microphone, dataArray;
+
+    // Fonction pour démarrer l'écoute du micro
+    async function startListening() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        microphone = audioContext.createMediaStreamSource(stream);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        analyser.fftSize = 256;
+        microphone.connect(analyser);
+
+        function updateMeter() {
+          analyser.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+
+          // Approximation des décibels
+          const decibels = Math.round((average / 20) * 100);
+          const rotation = (decibels / 100) * 180 - 90; // Transformation pour jauge (de -90° à +90°)
+
+          // Mise à jour de la jauge
+          needle.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+          decibelsDisplay.textContent = `${decibels} dB`;
+
+          // Mise à jour de la jauge de couleur (remplissage de gauche à droite)
+          gaugeFill.style.width = `${decibels}%`;
+
+          // Mise à jour de la valeur maximale des décibels
+          if (decibels > maxDecibels) {
+            maxDecibels = decibels;
+            maxDecibelsDisplay.textContent = `Max: ${maxDecibels} dB`;
+          }
+
+          requestAnimationFrame(updateMeter);
+        }
+
+        updateMeter();
+      } catch (err) {
+        alert('Impossible d’accéder au microphone. Veuillez vérifier les permissions.');
+        console.error(err);
+      }
+    }
+
+    // Démarrage automatique de l'écoute
+    startListening();
+
+    // Fonction pour réinitialiser le compteur sans affecter le microphone
+    document.getElementById('resetButton').addEventListener('click', function() {
+      maxDecibels = 0; // Réinitialiser la valeur maximale
+      maxDecibelsDisplay.textContent = 'Max: 0 dB'; // Afficher 0 dB comme max
+      decibelsDisplay.textContent = '0 dB'; // Réinitialiser l'affichage des décibels
+      gaugeFill.style.width = '0%'; // Réinitialiser la jauge à 0%
+    });
+  </script>
+</body>
+</html>
